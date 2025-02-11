@@ -16,6 +16,7 @@ jobs:
     # or when a comment containing `/backport` is created by someone other than the
     # https://github.com/backport-action bot user (user id: 97796249). Note that if you use your
     # own PAT as `github_token`, that you should replace this id with yours.
+    # claudiubelu's user ID is 1552519.
     if: >
       (
         github.event_name == 'pull_request_target' &&
@@ -23,14 +24,16 @@ jobs:
       ) || (
         github.event_name == 'issue_comment' &&
         github.event.issue.pull_request &&
-        github.event.comment.user.id != 97796249 &&
+        github.event.comment.user.id != 1552519 &&
         contains(github.event.comment.body, '/backport')
       )
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Create backport pull requests
+        id: create_backports
         uses: korthout/backport-action@v3
         with:
           # Set (default) action parameters explicitly.
@@ -43,7 +46,7 @@ jobs:
             {
               "conflict_resolution": "fail"
             }
-          github_token: ${{ github.token }}
+          github_token: ${{ secrets.BOT_TOKEN }}
           github_workspace: ${{ github.workspace }}
           label_pattern: ^backport ([^ ]+)$
           merge_commits: fail
@@ -52,3 +55,10 @@ jobs:
             Backport of #${pull_number} to `${target_branch}`.
           pull_title: >-
             [Backport ${target_branch}] ${pull_title}
+
+      - name: Label backports with automerge and approve
+        run: |
+          for pr_number in ${{ steps.create_backports.outputs.created_pull_numbers }}; do
+            gh pr edit "$pr_number" --add-label "automerge"
+            gh pr review "$pr_number" --approve
+          done
