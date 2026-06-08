@@ -12,6 +12,7 @@ import (
 
 	apiv1 "github.com/canonical/k8s-snap-api/api/v1"
 	apiv1_annotations "github.com/canonical/k8s-snap-api/api/v1/annotations"
+	dqliteclient "github.com/canonical/k8s/pkg/client/dqlite"
 	etcdclient "github.com/canonical/k8s/pkg/client/etcd"
 	databaseutil "github.com/canonical/k8s/pkg/k8sd/database/util"
 	"github.com/canonical/k8s/pkg/k8sd/types"
@@ -209,6 +210,10 @@ func removeNodeFromK8sDqlite(ctx context.Context, s state.State, snap snap.Snap,
 
 	log.Info("Removing node from k8s-dqlite using address", "address", nodeAddress)
 	if err := client.RemoveNodeByAddress(ctx, nodeAddress); err != nil {
+		if errors.Is(err, dqliteclient.ErrNotFound) {
+			log.Info("Node not found in k8s-dqlite cluster, nothing to remove", "address", nodeAddress)
+			return nil
+		}
 		return fmt.Errorf("failed to remove node from k8s-dqlite cluster: %w", err)
 	}
 	return nil
